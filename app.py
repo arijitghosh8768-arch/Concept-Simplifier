@@ -1,8 +1,18 @@
-from flask import Flask, render_template, request
+import os
+import requests
+from flask import Flask, render_template, request, jsonify
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = Flask(__name__)
 
-# ========== STABLE LOCAL KNOWLEDGE BASE (No API) ==========
+# Config
+NVIDIA_API_KEY = os.getenv("NVIDIA_API_KEY")
+NVIDIA_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
+MODEL = "meta/llama-3.1-8b-instruct"
+
+# ========== LOCAL KNOWLEDGE BASE (Safety Backup) ==========
 EXPLANATIONS = {
     "firewall": "- A firewall acts like a security guard for your computer.\n- It checks all incoming and outgoing internet traffic.\n- If something looks dangerous, it blocks it.\n- Example: Like a bouncer at a club who checks IDs and stops troublemakers.",
     
@@ -27,8 +37,8 @@ EXPLANATIONS = {
     "zero trust": "- A security model that assumes every user and device is a threat by default.\n- It requires continuous verification for every single access request.\n- Real-world example: Like a building where you have to show your ID at every single door."
 }
 
-def get_explanation(topic):
-    # Normalize input
+def get_local_explanation(topic):
+    """Fallback logic to use if the API is unavailable."""
     topic_lower = topic.lower().strip()
     # Remove common question words
     for prefix in ["what is ", "define ", "explain ", "tell me about ", "what's ", "what are "]:
@@ -36,17 +46,48 @@ def get_explanation(topic):
             topic_lower = topic_lower[len(prefix):]
     topic_lower = topic_lower.strip()
     
-    # 1. Exact match
+    # Check exact/partial match
     if topic_lower in EXPLANATIONS:
         return EXPLANATIONS[topic_lower]
-    
-    # 2. Partial match
     for key, value in EXPLANATIONS.items():
         if key in topic_lower or topic_lower in key:
             return value
-    
-    # 3. Generic fallback
     return f"- '{topic}' is a concept in computer networking or technology.\n- It defines rules or methods for communication.\n- Example: Protocols like RIP, HTTP, or TCP/IP help systems work together."
+
+def get_from_nvidia(topic):
+    """Attempts to get a fresh explanation from NVIDIA AI."""
+    if not NVIDIA_API_KEY:
+        return None
+        
+    headers = {
+        "Authorization": f"Bearer {NVIDIA_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    
+    prompt = f"Explain '{topic}' in 3-4 bullet points (each starting with '-'). Keep the language very simple for a student. Include a real-world example."
+    
+    payload = {
+        "model": MODEL,
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.5,
+        "max_tokens": 300
+    }
+    
+    try:
+        response = requests.post(NVIDIA_URL, json=payload, headers=headers, timeout=8)
+        response.raise_for_status()
+        data = response.json()
+        return data["choices"][0]["message"]["content"].strip()
+    except Exception:
+        return None  # Return None to trigger the local fallback
+
+def get_explanation(topic):
+    # Try AI first
+    ai_result = get_from_nvidia(topic)
+    if ai_result:
+        return ai_result
+    # Fallback to local if AI fails
+    return get_local_explanation(topic)
 
 @app.route("/", methods=["GET", "POST"])
 def home():
