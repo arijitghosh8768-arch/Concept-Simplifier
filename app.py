@@ -2,7 +2,7 @@ from flask import Flask, render_template, request
 
 app = Flask(__name__)
 
-# ========== COMPLETE KNOWLEDGE BASE (bullet points) ==========
+# ========== STABLE LOCAL KNOWLEDGE BASE (No API) ==========
 EXPLANATIONS = {
     "firewall": "- A firewall acts like a security guard for your computer.\n- It checks all incoming and outgoing internet traffic.\n- If something looks dangerous, it blocks it.\n- Example: Like a bouncer at a club who checks IDs and stops troublemakers.",
     
@@ -40,12 +40,12 @@ def get_explanation(topic):
     if topic_lower in EXPLANATIONS:
         return EXPLANATIONS[topic_lower]
     
-    # 2. Partial match (e.g., "routing protocol" matches "routing information protocol")
+    # 2. Partial match
     for key, value in EXPLANATIONS.items():
         if key in topic_lower or topic_lower in key:
             return value
     
-    # 3. Generic fallback (clean, no note about API)
+    # 3. Generic fallback
     return f"- '{topic}' is a concept in computer networking or technology.\n- It defines rules or methods for communication.\n- Example: Protocols like RIP, HTTP, or TCP/IP help systems work together."
 
 @app.route("/", methods=["GET", "POST"])
