@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Concept Simplifier</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <div class="header">
+                <h1>📘 Concept Simplifier</h1>
+                <p class="sub">Type any topic → get a simple explanation</p>
+            </div>
+
+            <form id="simplifyForm" method="POST">
+                <div class="input-field">
+                    <label for="topicInput">What do you want to understand?</label>
+                    <input type="text" name="topic" id="topicInput" placeholder="e.g., Firewall, Blockchain, SQL Injection" value="{{ topic }}" required>
+                </div>
+                <div class="button-group">
+                    <button type="submit" id="simplifyBtn" class="btn-primary">✨ Simplify</button>
+                    <button type="button" id="voiceBtn" class="btn-secondary"><i class="fas fa-microphone"></i> Voice</button>
+                </div>
+            </form>
+
+            <div class="chips-section">
+                <span>Quick examples:</span>
+                <div class="chips">
+                    <span class="chip" data-topic="Firewall">Firewall</span>
+                    <span class="chip" data-topic="Phishing">Phishing</span>
+                    <span class="chip" data-topic="SQL Injection">SQL Injection</span>
+                    <span class="chip" data-topic="Ransomware">Ransomware</span>
+                    <span class="chip" data-topic="Trojan Horse">Trojan Horse</span>
+                    <span class="chip" data-topic="VPN">VPN</span>
+                </div>
+            </div>
+
+            <div class="output-box">
+                <div class="output-header">
+                    <span><i class="fas fa-comment"></i> Explanation</span>
+                    <div class="output-tools">
+                        <button id="copyBtn" title="Copy"><i class="far fa-copy"></i></button>
+                        <button id="downloadBtn" title="Save as text"><i class="fas fa-download"></i></button>
+                    </div>
+                </div>
+                <div id="outputText">
+                    {% if explanation %}
+                        {{ explanation }}
+                    {% else %}
+                        Your explanation will appear here.
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <footer>
+            <!-- no personal details -->
+        </footer>
+    </div>
+
+    <script>
+        const form = document.getElementById('simplifyForm');
+        const topicInput = document.getElementById('topicInput');
+        const outputDiv = document.getElementById('outputText');
+        const copyBtn = document.getElementById('copyBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const voiceBtn = document.getElementById('voiceBtn');
+
+        document.querySelectorAll('.chip').forEach(chip => {
+            chip.addEventListener('click', () => {
+                topicInput.value = chip.getAttribute('data-topic');
+                form.submit();
+            });
+        });
+
+        copyBtn.addEventListener('click', () => {
+            const text = outputDiv.innerText;
+            if (text && !text.includes('Your explanation will appear here')) {
+                navigator.clipboard.writeText(text);
+                showToast('Copied to clipboard');
+            } else {
+                showToast('Nothing to copy yet', 1500);
+            }
+        });
+
+        downloadBtn.addEventListener('click', () => {
+            const topic = topicInput.value.trim() || 'concept';
+            const explanation = outputDiv.innerText;
+            if (explanation && !explanation.includes('Your explanation will appear here')) {
+                const content = `Topic: ${topic}\n\nSimplified explanation:\n${explanation}`;
+                const blob = new Blob([content], {type: 'text/plain'});
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = `simplified_${topic.replace(/\s+/g, '_')}.txt`;
+                link.click();
+                URL.revokeObjectURL(link.href);
+                showToast('Saved as .txt');
+            } else {
+                showToast('Generate an explanation first', 1500);
+            }
+        });
+
+        voiceBtn.addEventListener('click', () => {
+            if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+                showToast('Voice input requires Chrome or Edge', 2000);
+                return;
+            }
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            const recognition = new SpeechRecognition();
+            recognition.lang = 'en-US';
+            recognition.start();
+            showToast('Listening... speak your topic', 1500);
+            recognition.onresult = (event) => {
+                const spoken = event.results[0][0].transcript;
+                topicInput.value = spoken;
+                showToast(`Heard: "${spoken}"`, 1500);
+                form.submit();
+            };
+            recognition.onerror = () => showToast('Voice error, please type', 1500);
+        });
+
+        function showToast(msg, duration = 2000) {
+            let toast = document.querySelector('.toast');
+            if (toast) toast.remove();
+            toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.innerHTML = msg;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), duration);
+        }
+    </script>
+</body>
+</html>
